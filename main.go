@@ -122,9 +122,9 @@ func (g *Gitlab) GetMetadata() (Metadata, error) {
 type Slack struct{}
 
 func (t *Slack) Send(m Message) error {
-	webhook := "https://hooks.slack.com/services/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"
+	webhook := ""
 
-	tmpl, err := template.New("test").Parse("{{.Count}} items are made of {{.Material}}")
+	tmpl, err := template.New("").Parse("<!channel> {{.ProjectTitle}} deployed\nPipeline: {{.PipelineURL}}\n")
 	if err != nil {
 		panic(err)
 	}
