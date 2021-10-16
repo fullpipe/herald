@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bytes"
+	"fmt"
 	"log"
 	"os"
 	"text/template"
@@ -148,44 +150,57 @@ Pipeline: {{ or .URL "none"}}
 }
 
 func (c *Cli) Send(m Metadata) error {
-	tmpl, err := template.New("message").Parse(c.message)
-	if err != nil {
-		return err
-	}
-
 	yellow := color.New(color.FgYellow).SprintFunc()
 	cyan := color.New(color.FgCyan).SprintFunc()
 
 	if c.colors {
 		if m.ProjectTitle != "" {
-			m.ProjectTitle = cyan(m.ProjectTitle)
+			m.ProjectTitle = yellow(m.ProjectTitle)
 		}
 
 		if m.ProjectURL != "" {
-			m.ProjectURL = yellow(m.ProjectURL)
+			m.ProjectURL = cyan(m.ProjectURL)
 		}
 
 		if m.Branch != "" {
-			m.Branch = yellow(m.Branch)
+			m.Branch = cyan(m.Branch)
 		}
 
 		if m.CommitSHA != "" {
-			m.CommitSHA = yellow(m.CommitSHA)
+			m.CommitSHA = cyan(m.CommitSHA)
 		}
 
 		if m.Author != "" {
-			m.Author = yellow(m.Author)
+			m.Author = cyan(m.Author)
 		}
 
 		if m.URL != "" {
-			m.URL = yellow(m.URL)
+			m.URL = cyan(m.URL)
 		}
 	}
 
-	err = tmpl.Execute(os.Stdout, m)
+	message, err := RenderMessage(c.message, m)
 	if err != nil {
 		return err
 	}
 
+	fmt.Print(message)
+
 	return nil
+}
+
+func RenderMessage(message string, meta Metadata) (string, error) {
+	tmpl, err := template.New("message").Parse(message)
+	if err != nil {
+		return "", err
+	}
+
+	out := bytes.NewBufferString("")
+
+	err = tmpl.Execute(out, meta)
+	if err != nil {
+		return "", err
+	}
+
+	return out.String(), nil
 }
