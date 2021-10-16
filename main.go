@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	places := []Place{&Nowhere{}}
+	places := []Place{&Nowhere{}, &Git{}}
 	targets := []Target{&Cli{}}
 
 	app := cli.NewApp()
@@ -129,6 +129,7 @@ func (c *Cli) Flags() []cli.Flag {
 			Usage:   "Want some color?",
 			Value: `
 Project {{.ProjectTitle}} deployed
+
 Project: {{ or .ProjectTitle "none"}}
 URL: {{ or .ProjectURL "none"}}
 Branch: {{ or .Branch "none"}}
