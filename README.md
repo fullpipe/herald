@@ -7,3 +7,6 @@
 - local git (place)
 - gitlab (place)
 - better metadata
+- ci
+- container
+- error handling

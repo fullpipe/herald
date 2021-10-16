@@ -1,8 +1,6 @@
 package main
 
 import (
-	"errors"
-	"fmt"
 	"log"
 	"os"
 	"text/template"
@@ -31,8 +29,6 @@ func main() {
 						return err
 					}
 
-					fmt.Println(meta)
-
 					return target.Send(meta)
 				},
 			})
@@ -46,73 +42,10 @@ func main() {
 		})
 	}
 
-	// app := &cli.App{
-	// 	Name:  "herald",
-	// 	Usage: "notify someone from somewhere",
-	// 	Flags: []cli.Flag{
-	// 		&cli.StringFlag{
-	// 			Name:    "message",
-	// 			Aliases: []string{"m"},
-	// 			Usage:   "Message to send `MESSAGE`",
-	// 		},
-	// 	},
-	// 	Action: func(c *cli.Context) error {
-	// 		place, err := GetPlace(c.Args().First())
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		target, err := GetTarget(c.Args().Get(1))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		meta, err := place.GetMetadata()
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		message, err := GetMessage(meta, c.String("message"))
-	// 		if err != nil {
-	// 			return err
-	// 		}
-
-	// 		return target.Send(message)
-	// 	},
-	// }
-
 	err := app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-func GetPlace(p string) (Place, error) {
-	switch p {
-	case "gitlab":
-		return &Gitlab{}, nil
-	case "github":
-		return nil, errors.New("No github implimentation")
-	default:
-		return nil, fmt.Errorf("No %s place implimentation", p)
-	}
-}
-
-func GetMessage(m Metadata, template string) (Message, error) {
-	return Message{}, nil
-}
-
-func GetTarget(t string) (Target, error) {
-	switch t {
-	case "slack":
-		return &Slack{}, nil
-	default:
-		return nil, fmt.Errorf("No %s target implimentation", t)
-	}
-}
-
-type Message struct {
-	Text string
 }
 
 type Metadata struct {
@@ -203,7 +136,6 @@ CommitSHA: {{ or .CommitSHA "none"}}
 Author: {{ or .Author "none"}}
 Pipeline: {{ or .URL "none"}}
 `,
-			// Required:    true,
 			Destination: &c.message,
 		},
 		&cli.BoolFlag{
