@@ -1,54 +1,85 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"log"
 	"os"
-	"strconv"
-	"time"
+	"text/template"
 
-	"github.com/slack-go/slack"
+	"github.com/fatih/color"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	app := &cli.App{
-		Name:  "herald",
-		Usage: "notify someone from somewhere",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "message",
-				Aliases: []string{"m"},
-				Usage:   "Message to send `MESSAGE`",
-			},
-		},
-		Action: func(c *cli.Context) error {
-			place, err := GetPlace(c.Args().First())
-			if err != nil {
-				return err
-			}
+	places := []Place{&Nowhere{}}
+	targets := []Target{&Cli{}}
 
-			target, err := GetTarget(c.Args().Get(1))
-			if err != nil {
-				return err
-			}
+	app := cli.NewApp()
 
-			meta, err := place.GetMetadata()
-			if err != nil {
-				return err
-			}
+	for _, place := range places {
+		subCommands := []*cli.Command{}
 
-			message, err := GetMessage(meta, c.String("message"))
-			if err != nil {
-				return err
-			}
+		for _, target := range targets {
+			subCommands = append(subCommands, &cli.Command{
+				Name:  target.Name(),
+				Usage: "add a new template",
+				Flags: target.Flags(),
+				Action: func(c *cli.Context) error {
+					meta, err := place.Metadata()
+					if err != nil {
+						return err
+					}
 
-			return target.Send(message)
-		},
+					fmt.Println(meta)
+
+					return target.Send(meta)
+				},
+			})
+		}
+
+		app.Commands = append(app.Commands, &cli.Command{
+			Name:        place.Name(),
+			Usage:       "options for task templates",
+			Flags:       place.Flags(),
+			Subcommands: subCommands,
+		})
 	}
+
+	// app := &cli.App{
+	// 	Name:  "herald",
+	// 	Usage: "notify someone from somewhere",
+	// 	Flags: []cli.Flag{
+	// 		&cli.StringFlag{
+	// 			Name:    "message",
+	// 			Aliases: []string{"m"},
+	// 			Usage:   "Message to send `MESSAGE`",
+	// 		},
+	// 	},
+	// 	Action: func(c *cli.Context) error {
+	// 		place, err := GetPlace(c.Args().First())
+	// 		if err != nil {
+	// 			return err
+	// 		}
+
+	// 		target, err := GetTarget(c.Args().Get(1))
+	// 		if err != nil {
+	// 			return err
+	// 		}
+
+	// 		meta, err := place.GetMetadata()
+	// 		if err != nil {
+	// 			return err
+	// 		}
+
+	// 		message, err := GetMessage(meta, c.String("message"))
+	// 		if err != nil {
+	// 			return err
+	// 		}
+
+	// 		return target.Send(message)
+	// 	},
+	// }
 
 	err := app.Run(os.Args)
 	if err != nil {
@@ -93,63 +124,135 @@ type Metadata struct {
 	URL          string
 }
 
+// ----
 type Place interface {
-	GetMetadata() (Metadata, error)
+	Name() string
+	Metadata() (Metadata, error)
+	Flags() []cli.Flag
 }
 
-type Target interface {
-	Send(m Message) error
+type Nowhere struct {
+	projectTitle string
+	projectURL   string
+	branch       string
+	commitSHA    string
+	author       string
+	url          string
 }
 
-type Gitlab struct{}
+func (t *Nowhere) Name() string {
+	return "nowhere"
+}
 
-func (g *Gitlab) GetMetadata() (Metadata, error) {
-	m := Metadata{}
-
-	m.ProjectTitle = os.Getenv("CI_PROJECT_TITLE")
-	m.ProjectURL = os.Getenv("CI_PROJECT_URL")
-
-	m.Branch = os.Getenv("CI_COMMIT_BRANCH")
-	m.CommitSHA = os.Getenv("CI_COMMIT_SHA")
-	m.Author = os.Getenv("CI_COMMIT_AUTHOR")
-
-	//PipelineURL???
-	m.URL = os.Getenv("CI_PIPELINE_URL")
+func (t *Nowhere) Metadata() (Metadata, error) {
+	m := Metadata{
+		ProjectTitle: t.projectTitle,
+		ProjectURL:   t.projectURL,
+		Branch:       t.branch,
+		CommitSHA:    t.commitSHA,
+		Author:       t.author,
+		URL:          t.url,
+	}
 
 	return m, nil
 }
 
-type Slack struct{}
+func (t *Nowhere) Flags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:        "projectTitle",
+			Usage:       "",
+			Destination: &t.projectTitle,
+		},
+		&cli.StringFlag{
+			Name:        "branch",
+			Usage:       "",
+			Destination: &t.branch,
+		},
+	}
+}
 
-func (t *Slack) Send(m Message) error {
-	webhook := ""
+// ----
+type Target interface {
+	Name() string
+	Send(m Metadata) error
+	Flags() []cli.Flag
+}
 
-	tmpl, err := template.New("").Parse("<!channel> {{.ProjectTitle}} deployed\nPipeline: {{.PipelineURL}}\n")
+type Cli struct {
+	colors  bool
+	message string
+}
+
+func (c *Cli) Name() string {
+	return "cli"
+}
+
+func (c *Cli) Flags() []cli.Flag {
+	return []cli.Flag{
+		&cli.StringFlag{
+			Name:    "message",
+			Aliases: []string{"m"},
+			Usage:   "Want some color?",
+			Value: `
+Project {{.ProjectTitle}} deployed
+Project: {{ or .ProjectTitle "none"}}
+URL: {{ or .ProjectURL "none"}}
+Branch: {{ or .Branch "none"}}
+CommitSHA: {{ or .CommitSHA "none"}}
+Author: {{ or .Author "none"}}
+Pipeline: {{ or .URL "none"}}
+`,
+			// Required:    true,
+			Destination: &c.message,
+		},
+		&cli.BoolFlag{
+			Name:        "colors",
+			Usage:       "Want some color?",
+			Destination: &c.colors,
+		},
+	}
+}
+
+func (c *Cli) Send(m Metadata) error {
+	tmpl, err := template.New("message").Parse(c.message)
 	if err != nil {
-		panic(err)
-	}
-	err = tmpl.Execute(os.Stdout, sweaters)
-	if err != nil {
-		panic(err)
+		return err
 	}
 
-	attachment := slack.Attachment{
-		Color:      "good",
-		AuthorName: "Herald",
-		//AuthorSubname: "github.com",
-		//AuthorLink:    "https://github.com/slack-go/slack",
-		//AuthorIcon:    "https://avatars2.githubusercontent.com/u/652790",
-		Text: "<!channel> All text in Slack uses the same system of escaping: chat messages, direct messages, file comments, etc. :smile:\nSee <https://api.slack.com/docs/message-formatting#linking_to_channels_and_users>",
-		Ts:   json.Number(strconv.FormatInt(time.Now().Unix(), 10)),
-	}
-	msg := slack.WebhookMessage{
-		Attachments: []slack.Attachment{attachment},
+	yellow := color.New(color.FgYellow).SprintFunc()
+	cyan := color.New(color.FgCyan).SprintFunc()
+
+	if c.colors {
+		if m.ProjectTitle != "" {
+			m.ProjectTitle = cyan(m.ProjectTitle)
+		}
+
+		if m.ProjectURL != "" {
+			m.ProjectURL = yellow(m.ProjectURL)
+		}
+
+		if m.Branch != "" {
+			m.Branch = yellow(m.Branch)
+		}
+
+		if m.CommitSHA != "" {
+			m.CommitSHA = yellow(m.CommitSHA)
+		}
+
+		if m.Author != "" {
+			m.Author = yellow(m.Author)
+		}
+
+		if m.URL != "" {
+			m.URL = yellow(m.URL)
+		}
 	}
 
-	err := slack.PostWebhook(webhook, &msg)
+	err = tmpl.Execute(os.Stdout, m)
 	if err != nil {
-		fmt.Println(err)
+		return err
 	}
-	log.Println("sending to slack:", m)
+
 	return nil
 }
