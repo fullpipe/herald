@@ -15,6 +15,9 @@ func main() {
 
 	app := cli.NewApp()
 
+	app.Usage = "Notify someone from some place about your success"
+	app.UsageText = "herald PLACE [place options] TARGET [target options]"
+
 	for _, pl := range places {
 		subCommands := []*cli.Command{}
 

@@ -71,7 +71,7 @@ func (s *Slack) Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:        "webhook",
-			Usage:       "Incoming Webhooks url",
+			Usage:       "Incoming Webhooks `URL`",
 			Destination: &s.webhook,
 			Required:    true,
 		},
@@ -84,7 +84,7 @@ func (s *Slack) Flags() []cli.Flag {
 		&cli.StringFlag{
 			Name:        "message",
 			Aliases:     []string{"m"},
-			Usage:       "Annotation description. Use metadata vars: {{.project}}, ...",
+			Usage:       "Message temlate. Use metadata vars: {{.project}}, ...",
 			Value:       `<!channel> Project {{.project}} deployed`,
 			Destination: &s.message,
 		},
