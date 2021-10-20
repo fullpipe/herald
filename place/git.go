@@ -1,7 +1,8 @@
-package main
+package place
 
 import (
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/urfave/cli/v2"
@@ -15,6 +16,10 @@ func (g *Git) Name() string {
 	return "git"
 }
 
+func (g *Git) Usage() string {
+	return ""
+}
+
 func (g *Git) Metadata() (Metadata, error) {
 	m := Metadata{}
 
@@ -22,36 +27,31 @@ func (g *Git) Metadata() (Metadata, error) {
 	if err != nil {
 		return m, err
 	}
-
-	m.ProjectTitle = title
+	m.Project = filepath.Base(title)
 
 	branch, err := g.cmd("git", "branch", "--show-current")
 	if err != nil {
 		return m, err
 	}
-
 	m.Branch = branch
 
 	sha, err := g.cmd("git", "rev-parse", "HEAD")
 	if err != nil {
 		return m, err
 	}
-
-	m.CommitSHA = sha
+	m.SHA = sha
 
 	author, err := g.cmd("git", "show", "-s", "--format=%an <%ae>", "HEAD")
 	if err != nil {
 		return m, err
 	}
-
 	m.Author = author
 
 	url, err := g.cmd("git", "remote", "get-url", "origin")
 	if err != nil {
 		return m, err
 	}
-
-	m.ProjectURL = url
+	m.URL = url
 
 	return m, nil
 }
@@ -60,20 +60,13 @@ func (g *Git) Flags() []cli.Flag {
 	return []cli.Flag{
 		&cli.StringFlag{
 			Name:        "path",
+			Usage:       "path to your git repository",
 			Value:       ".",
 			Destination: &g.path,
 		},
 	}
 }
 
-func cmd(cmd ...string) (string, error) {
-	stdout, err := exec.Command(cmd[0], cmd[1:]...).Output()
-	if err != nil {
-		return "", err
-	}
-
-	return strings.TrimSpace(string(stdout)), nil
-}
 func (g *Git) cmd(args ...string) (string, error) {
 	cmd := exec.Command(args[0], args[1:]...)
 	cmd.Dir = g.path

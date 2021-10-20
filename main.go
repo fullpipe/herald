@@ -1,45 +1,45 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
 	"log"
 	"os"
-	"text/template"
 
-	"github.com/fatih/color"
+	"github.com/fullpipe/herald/place"
+	"github.com/fullpipe/herald/target"
 	"github.com/urfave/cli/v2"
 )
 
 func main() {
-	places := []Place{&Nowhere{}, &Git{}}
-	targets := []Target{&Cli{}}
+	places := []place.Place{&place.Nowhere{}, &place.Git{}, &place.Gitlab{}}
+	targets := []target.Target{&target.Cli{}, &target.Grafana{}, &target.Slack{}}
 
 	app := cli.NewApp()
 
-	for _, place := range places {
+	for _, pl := range places {
 		subCommands := []*cli.Command{}
 
-		for _, target := range targets {
+		for _, t := range targets {
 			subCommands = append(subCommands, &cli.Command{
-				Name:  target.Name(),
-				Usage: "add a new template",
-				Flags: target.Flags(),
-				Action: func(c *cli.Context) error {
-					meta, err := place.Metadata()
-					if err != nil {
-						return err
-					}
+				Name:  t.Name(),
+				Usage: t.Usage(),
+				Flags: t.Flags(),
+				Action: func(pl place.Place, t target.Target) func(c *cli.Context) error {
+					return func(c *cli.Context) error {
+						meta, err := pl.Metadata()
+						if err != nil {
+							return err
+						}
 
-					return target.Send(meta)
-				},
+						return t.Send(meta)
+					}
+				}(pl, t),
 			})
 		}
 
 		app.Commands = append(app.Commands, &cli.Command{
-			Name:        place.Name(),
-			Usage:       "options for task templates",
-			Flags:       place.Flags(),
+			Name:        pl.Name(),
+			Usage:       pl.Usage(),
+			Flags:       pl.Flags(),
 			Subcommands: subCommands,
 		})
 	}
@@ -48,159 +48,4 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-}
-
-type Metadata struct {
-	ProjectTitle string
-	ProjectURL   string
-	Branch       string
-	CommitSHA    string
-	Author       string
-	URL          string
-}
-
-// ----
-type Place interface {
-	Name() string
-	Metadata() (Metadata, error)
-	Flags() []cli.Flag
-}
-
-type Nowhere struct {
-	projectTitle string
-	projectURL   string
-	branch       string
-	commitSHA    string
-	author       string
-	url          string
-}
-
-func (t *Nowhere) Name() string {
-	return "nowhere"
-}
-
-func (t *Nowhere) Metadata() (Metadata, error) {
-	m := Metadata{
-		ProjectTitle: t.projectTitle,
-		ProjectURL:   t.projectURL,
-		Branch:       t.branch,
-		CommitSHA:    t.commitSHA,
-		Author:       t.author,
-		URL:          t.url,
-	}
-
-	return m, nil
-}
-
-func (t *Nowhere) Flags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:        "projectTitle",
-			Usage:       "",
-			Destination: &t.projectTitle,
-		},
-		&cli.StringFlag{
-			Name:        "branch",
-			Usage:       "",
-			Destination: &t.branch,
-		},
-	}
-}
-
-// ----
-type Target interface {
-	Name() string
-	Send(m Metadata) error
-	Flags() []cli.Flag
-}
-
-type Cli struct {
-	colors  bool
-	message string
-}
-
-func (c *Cli) Name() string {
-	return "cli"
-}
-
-func (c *Cli) Flags() []cli.Flag {
-	return []cli.Flag{
-		&cli.StringFlag{
-			Name:    "message",
-			Aliases: []string{"m"},
-			Usage:   "Want some color?",
-			Value: `
-Project {{.ProjectTitle}} deployed
-
-Project: {{ or .ProjectTitle "none"}}
-URL: {{ or .ProjectURL "none"}}
-Branch: {{ or .Branch "none"}}
-CommitSHA: {{ or .CommitSHA "none"}}
-Author: {{ or .Author "none"}}
-Pipeline: {{ or .URL "none"}}
-`,
-			Destination: &c.message,
-		},
-		&cli.BoolFlag{
-			Name:        "colors",
-			Usage:       "Want some color?",
-			Destination: &c.colors,
-		},
-	}
-}
-
-func (c *Cli) Send(m Metadata) error {
-	yellow := color.New(color.FgYellow).SprintFunc()
-	cyan := color.New(color.FgCyan).SprintFunc()
-
-	if c.colors {
-		if m.ProjectTitle != "" {
-			m.ProjectTitle = yellow(m.ProjectTitle)
-		}
-
-		if m.ProjectURL != "" {
-			m.ProjectURL = cyan(m.ProjectURL)
-		}
-
-		if m.Branch != "" {
-			m.Branch = cyan(m.Branch)
-		}
-
-		if m.CommitSHA != "" {
-			m.CommitSHA = cyan(m.CommitSHA)
-		}
-
-		if m.Author != "" {
-			m.Author = cyan(m.Author)
-		}
-
-		if m.URL != "" {
-			m.URL = cyan(m.URL)
-		}
-	}
-
-	message, err := RenderMessage(c.message, m)
-	if err != nil {
-		return err
-	}
-
-	fmt.Print(message)
-
-	return nil
-}
-
-func RenderMessage(message string, meta Metadata) (string, error) {
-	tmpl, err := template.New("message").Parse(message)
-	if err != nil {
-		return "", err
-	}
-
-	out := bytes.NewBufferString("")
-
-	err = tmpl.Execute(out, meta)
-	if err != nil {
-		return "", err
-	}
-
-	return out.String(), nil
 }
