@@ -63,7 +63,8 @@ Author: {{ or .author "none"}}
 
 ## Targets
 
-It's where you will see your success
+It's where you will see your success. 
+You could find available target options by `herald nowhere TARGET --help`.
 
 | Target        | Description                              | Required options       |
 | ----------    | :----------                              | :-----------           |
