@@ -18,9 +18,18 @@ For example we want to notify grafana from local git repository
 
 ```bash
 export GRAFANA_API_KEY=abirvalg
-herald git grafana --host https://grafana.example.com:3000 --api-key ${GRAFANA_API_KEY} --tag TASK-123 --tag release --tag wtf-project
+
+herald git grafana \
+    --host https://grafana.example.com:3000 \
+    --api-key ${GRAFANA_API_KEY} \
+    --tag TASK-123 --tag release --tag foo-project \
+
 # or you could modify message
-herald git grafana --host https://grafana.example.com:3000 --api-key ${GRAFANA_API_KEY} --tag TASK-123 --tag release --tag wtf-project -m "Project {{.project}} deployed. Going home."
+herald git grafana \
+    --host https://grafana.example.com:3000 \
+    --api-key ${GRAFANA_API_KEY} \
+    --tag TASK-123 --tag release --tag foo-project \
+    -m "Project {{.project}} deployed. Going home."
 ```
 
 | Add anotations                    | Feel the difference         | 
@@ -75,5 +84,3 @@ It's where you will see your success
 - more places
   - github actions
   - ...
-
-
